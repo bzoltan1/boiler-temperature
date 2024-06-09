@@ -39,6 +39,7 @@ for stretch_min in {1..10}; do
         if check_output "$tesseract_output"; then
             echo "Success with contrast-stretch ${stretch_min}x${stretch_max}%"
             echo "Tesseract output:"
+            tesseract_output="${tesseract_output//S/5}"
             echo "$tesseract_output"
             
             # Read the extracted text
