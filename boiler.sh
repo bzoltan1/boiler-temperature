@@ -69,14 +69,29 @@ for stretch_min in {1..10}; do
             font-weight: bold;
             color: #4CAF50;
             margin: 20px;
+            text-align: center;
         }
         .image-container {
             display: flex;
-            flex-direction: column;
-            align-items: center;
+            justify-content: center;
+            flex-wrap: wrap;
         }
         .image-container img {
+            max-width: 100%;
+            max-height: 100%;
+            height: auto;
             margin: 10px;
+            object-fit: contain;
+        }
+        @media (max-width: 600px) {
+            .temperature {
+                font-size: 2.5em;
+                margin: 10px;
+            }
+            .image-container {
+                flex-direction: column;
+                align-items: center;
+            }
         }
     </style>
 </head>
