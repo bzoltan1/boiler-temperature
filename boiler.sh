@@ -6,6 +6,9 @@ REMOTE_HOST=""
 WEB_SERVER=""
 WEB_DIR="/var/www/html/share"
 INFLUXDB_URL="http://localhost:8086/write?db=boiler"
+TEMP_FILE="/tmp/previous_temps.txt"
+TEMP_THRESHOLD=30  # Temperature difference threshold to detect unrealistic changes
+
 
 # Function to check if the tesseract output contains exactly one temperature
 check_output() {
@@ -35,6 +38,7 @@ process_temperature() {
             tesseract_output="${tesseract_output//S/5}"
             tesseract_output="${tesseract_output//s/5}"
             tesseract_output="${tesseract_output//$/5}"
+            tesseract_output="${tesseract_output//€/6}"
 
             if check_output "$tesseract_output"; then
                 echo "Success with contrast-stretch ${stretch_min}x${stretch_max}%"
@@ -74,6 +78,25 @@ roof_temp=$roof_temp_number
 # Process boiler temperature
 process_temperature "boiler" "-crop -398-590 -crop +980+450" "/tmp/boiler_value.jpg" "boiler_temp_number"
 boiler_temp=$boiler_temp_number
+
+# Check previous temperatures if file exists
+if [ -f "$TEMP_FILE" ]; then
+    read -r prev_roof_temp prev_boiler_temp < "$TEMP_FILE"
+    if [ $((roof_temp_number - prev_roof_temp)) -gt $TEMP_THRESHOLD ] || [ $((prev_roof_temp - roof_temp_number)) -gt $TEMP_THRESHOLD ]; then
+        echo "Unrealistic change detected in roof temperature: $prev_roof_temp -> $roof_temp_number"
+        roof_temp_number=$prev_roof_temp
+        roof_temp="${roof_temp_number}°C"
+    fi
+    if [ $((boiler_temp_number - prev_boiler_temp)) -gt $TEMP_THRESHOLD ] || [ $((prev_boiler_temp - boiler_temp_number)) -gt $TEMP_THRESHOLD ]; then
+        echo "Unrealistic change detected in boiler temperature: $prev_boiler_temp -> $boiler_temp_number"
+        boiler_temp_number=$prev_boiler_temp
+        boiler_temp="${boiler_temp_number}°C"
+    fi
+fi
+
+# Store current temperatures for the next execution
+echo "$roof_temp_number $boiler_temp_number" > "$TEMP_FILE"
+
 
 # Generate HTML file with the extracted number
 cat <<EOF > /tmp/bojler.html
