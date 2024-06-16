@@ -1,53 +1,82 @@
 #!/bin/bash
 
-# Variables
-REMOTE_IP=""
+# Configuration variables
 REMOTE_USER=""
-REMOTE_IMAGE_PATH="/tmp/boiler_screen.jpg"
-LOCAL_IMAGE_PATH="/tmp/boiler_screen.jpg"
-LOCAL_PROCESSED_IMAGE_PATH="/tmp/boiler_values.jpg"
-OUTPUT_HTML_PATH="bojler.html"
-UPLOAD_SERVER=""
-UPLOAD_PATH=""
+REMOTE_HOST=""
+WEB_SERVER=""
+WEB_DIR="/var/www/html/share"
+INFLUXDB_URL="http://localhost:8086/write?db=boiler"
 
-# Function to check if the tesseract output contains exactly two temperatures
+# Function to check if the tesseract output contains exactly one temperature
 check_output() {
     local output="$1"
     local temp_count=$(echo "$output" | grep -o '[0-9]\+°C' | wc -l)
-    if [ "$temp_count" -eq 2 ]; then
-        return 0  # True if there are exactly two temperatures
+    if [ "$temp_count" -eq 1 ]; then
+        return 0  # True if there is one temperature
     else
         return 1  # False otherwise
     fi
 }
 
-# Capture image from remote device
-ssh ${REMOTE_USER}@${REMOTE_IP} -t "fswebcam --set contrast=70% -D 2 --set brightness=20% -F 10 -r 640x480 -S 30 -d /dev/video0 ${REMOTE_IMAGE_PATH}" 
-scp ${REMOTE_USER}@${REMOTE_IP}:${REMOTE_IMAGE_PATH} /tmp/ 
+# Function to process temperature extraction
+process_temperature() {
+    local label="$1"
+    local crop_params="$2"
+    local img_output="$3"
+    local temp_var_name="$4"
 
-# Loop through different values of contrast-stretch
-for stretch_min in {1..10}; do
-    for stretch_max in {30..70..5}; do
-        # Convert the image with the current contrast-stretch parameters
-        echo "Trying with contrast-stretch ${stretch_min}x${stretch_max}%"
-        convert -rotate -8 -density 300 -depth 8 -resize 1600x1200 -crop -658-640 -crop +660+380 +repage -contrast-stretch ${stretch_min}x${stretch_max}% -colorspace Gray ${LOCAL_IMAGE_PATH} ${LOCAL_PROCESSED_IMAGE_PATH}
-        
-        # Recognize text using tesseract
-        tesseract_output=$(tesseract ${LOCAL_PROCESSED_IMAGE_PATH} stdout 2>/dev/null)
-        
-        # Check if the output contains exactly two temperatures
-        if check_output "$tesseract_output"; then
-            echo "Success with contrast-stretch ${stretch_min}x${stretch_max}%"
-            echo "Tesseract output:"
+    for stretch_min in {1..10}; do
+        for stretch_max in {10..80..5}; do
+            echo "Trying with contrast-stretch ${stretch_min}x${stretch_max}% for ${label} temperature"
+            convert -density 300 -depth 8 -resize 1600x1200 ${crop_params} -contrast-stretch ${stretch_min}x${stretch_max}% -colorspace Gray /tmp/boiler_screen.jpg ${img_output}
+            
+            # Recognize text using tesseract
+            tesseract_output=$(tesseract ${img_output} stdout 2>/dev/null)
             tesseract_output="${tesseract_output//S/5}"
-            echo "$tesseract_output"
-            
-            # Read the extracted text
-            roof_temp=$(echo "$tesseract_output" | grep -o '[0-9]\+°C' | sed -n '1p')
-            boiler_temp=$(echo "$tesseract_output" | grep -o '[0-9]\+°C' | sed -n '2p')
-            
-            # Generate HTML file with the extracted numbers
-            cat <<EOF > ${OUTPUT_HTML_PATH}
+            tesseract_output="${tesseract_output//s/5}"
+            tesseract_output="${tesseract_output//$/5}"
+
+            if check_output "$tesseract_output"; then
+                echo "Success with contrast-stretch ${stretch_min}x${stretch_max}%"
+                echo "Tesseract output for ${label}:"
+                echo "$tesseract_output"
+
+                local temp=$(echo "$tesseract_output" | grep -o '[0-9]\+°C' | sed -n '1p')
+                eval ${temp_var_name}=${temp//[^0-9]/}
+                return 0
+            fi
+        done
+    done
+
+    return 1
+}
+
+# Capture image from remote device
+ssh ${REMOTE_USER}@${REMOTE_HOST} -t "fswebcam --set contrast=70% -D 2 --set brightness=20% -F 10 -r 640x480 -S 30 -d /dev/video0 boiler_screen.jpg" 
+if [ $? -ne 0 ]; then
+    echo "Error capturing image from remote device."
+    exit 1
+fi
+
+scp ${REMOTE_USER}@${REMOTE_HOST}:boiler_screen.jpg /tmp/
+if [ $? -ne 0 ]; then
+    echo "Error copying image from remote device."
+    exit 1
+fi
+
+roof_temp_number=0
+boiler_temp_number=0
+
+# Process roof temperature
+process_temperature "roof" "-crop -398-750 -crop +980+340" "/tmp/roof_value.jpg" "roof_temp_number"
+roof_temp=$roof_temp_number
+
+# Process boiler temperature
+process_temperature "boiler" "-crop -398-590 -crop +980+450" "/tmp/boiler_value.jpg" "boiler_temp_number"
+boiler_temp=$boiler_temp_number
+
+# Generate HTML file with the extracted number
+cat <<EOF > /tmp/bojler.html
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -100,22 +129,27 @@ for stretch_min in {1..10}; do
     <div class="temperature">Boiler Temperature: $boiler_temp</div>
     <div class="image-container">
         <img src="boiler_screen.jpg" alt="Original Image">
-        <img src="boiler_values.jpg" alt="Processed Image">
+        <img src="roof_value.jpg" alt="Processed Image">
+        <img src="boiler_value.jpg" alt="Processed Image">
     </div>
 </body>
 </html>
 EOF
 
-            # Upload files to server
-            scp ${OUTPUT_HTML_PATH} ${UPLOAD_SERVER}:${UPLOAD_PATH}
-            scp ${LOCAL_IMAGE_PATH} ${UPLOAD_SERVER}:${UPLOAD_PATH}
-            scp ${LOCAL_PROCESSED_IMAGE_PATH} ${UPLOAD_SERVER}:${UPLOAD_PATH}
+scp /tmp/bojler.html ${WEB_SERVER}:${WEB_DIR}/
+scp /tmp/boiler_screen.jpg ${WEB_SERVER}:${WEB_DIR}/
+scp /tmp/roof_value.jpg ${WEB_SERVER}:${WEB_DIR}/
+scp /tmp/boiler_value.jpg ${WEB_SERVER}:${WEB_DIR}/
 
-            exit 0
-        fi
-    done
-done
+if [ "$roof_temp_number" -eq 0 ] || [ "$boiler_temp_number" -eq 0 ]; then
+    echo "No suitable contrast-stretch values found to recognize two temperatures."
+    exit 1
+fi
 
-echo "No suitable contrast-stretch values found to recognize two temperatures."
-exit 1
+temp_data="temperatures roof=${roof_temp_number},boiler=${boiler_temp_number}"
+echo $temp_data
+
+curl -i -XPOST ${INFLUXDB_URL} --data-binary "${temp_data}"
+
+exit 0
 
