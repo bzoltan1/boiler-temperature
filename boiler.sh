@@ -76,7 +76,7 @@ process_temperature "roof" "-crop -398-750 -crop +980+340" "/tmp/roof_value.jpg"
 roof_temp=$roof_temp_number
 
 # Process boiler temperature
-process_temperature "boiler" "-crop -398-590 -crop +980+450" "/tmp/boiler_value.jpg" "boiler_temp_number"
+process_temperature "boiler" "-crop -398-640 -crop +980+420" "/tmp/boiler_value.jpg" "boiler_temp_number"
 boiler_temp=$boiler_temp_number
 
 # Check previous temperatures if file exists
