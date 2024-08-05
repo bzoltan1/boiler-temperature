@@ -1,6 +1,7 @@
 #!/bin/bash
 
 # Configuration variables
+# Configuration variables
 REMOTE_USER=""
 REMOTE_HOST=""
 WEB_SERVER=""
@@ -39,6 +40,7 @@ process_temperature() {
             tesseract_output="${tesseract_output//s/5}"
             tesseract_output="${tesseract_output//$/5}"
             tesseract_output="${tesseract_output//€/6}"
+            tesseract_output="${tesseract_output//§/6}"
 
             if check_output "$tesseract_output"; then
                 echo "Success with contrast-stretch ${stretch_min}x${stretch_max}%"
@@ -72,11 +74,11 @@ roof_temp_number=0
 boiler_temp_number=0
 
 # Process roof temperature
-process_temperature "roof" "-crop -398-750 -crop +980+340" "/tmp/roof_value.jpg" "roof_temp_number"
+process_temperature "roof" "-crop -478-540 -crop +910+550" "/tmp/roof_value.jpg" "roof_temp_number"
 roof_temp=$roof_temp_number
 
 # Process boiler temperature
-process_temperature "boiler" "-crop -398-640 -crop +980+420" "/tmp/boiler_value.jpg" "boiler_temp_number"
+process_temperature "boiler" "-crop -478-420 -crop +910+650" "/tmp/boiler_value.jpg" "boiler_temp_number"
 boiler_temp=$boiler_temp_number
 
 # Check previous temperatures if file exists
