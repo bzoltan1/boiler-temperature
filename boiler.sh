@@ -30,7 +30,7 @@ process_temperature() {
     local temp_var_name="$4"
     magick /tmp/boiler_screen.jpg -density 300 -depth 8 -resize 1600x1200 -rotate 3 ${crop_params} -threshold 21% -colorspace Gray ${img_output}
     # Recognize text using tesseract
-    tesseract_output=$(tesseract ${img_output} - --psm 6)
+    tesseract_output=$(tesseract ${img_output} - --psm 6 2>/dev/null)
     tesseract_output="${tesseract_output//S/5}"
     tesseract_output="${tesseract_output//s/5}"
     tesseract_output="${tesseract_output//$/5}"
