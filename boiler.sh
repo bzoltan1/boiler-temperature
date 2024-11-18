@@ -36,6 +36,7 @@ process_temperature() {
     tesseract_output="${tesseract_output//$/5}"
     tesseract_output="${tesseract_output//€/6}"
     tesseract_output="${tesseract_output//§/6}"
+    tesseract_output="${tesseract_output//\*/°}"
     if check_output "$tesseract_output"; then
         echo "Tesseract output for ${label}:"
         echo "$tesseract_output"
