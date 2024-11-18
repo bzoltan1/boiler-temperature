@@ -28,32 +28,21 @@ process_temperature() {
     local crop_params="$2"
     local img_output="$3"
     local temp_var_name="$4"
-
-    for stretch_min in {1..10}; do
-        for stretch_max in {10..80..5}; do
-            echo "Trying with contrast-stretch ${stretch_min}x${stretch_max}% for ${label} temperature"
-            convert -density 300 -depth 8 -resize 1600x1200 ${crop_params} -contrast-stretch ${stretch_min}x${stretch_max}% -colorspace Gray /tmp/boiler_screen.jpg ${img_output}
-            
-            # Recognize text using tesseract
-            tesseract_output=$(tesseract ${img_output} stdout 2>/dev/null)
-            tesseract_output="${tesseract_output//S/5}"
-            tesseract_output="${tesseract_output//s/5}"
-            tesseract_output="${tesseract_output//$/5}"
-            tesseract_output="${tesseract_output//€/6}"
-            tesseract_output="${tesseract_output//§/6}"
-
-            if check_output "$tesseract_output"; then
-                echo "Success with contrast-stretch ${stretch_min}x${stretch_max}%"
-                echo "Tesseract output for ${label}:"
-                echo "$tesseract_output"
-
-                local temp=$(echo "$tesseract_output" | grep -o '[0-9]\+°C' | sed -n '1p')
-                eval ${temp_var_name}=${temp//[^0-9]/}
-                return 0
-            fi
-        done
-    done
-
+    magick /tmp/boiler_screen.jpg -density 300 -depth 8 -resize 1600x1200 -rotate 3 ${crop_params} -threshold 21% -colorspace Gray ${img_output}
+    # Recognize text using tesseract
+    tesseract_output=$(tesseract ${img_output} - --psm 6)
+    tesseract_output="${tesseract_output//S/5}"
+    tesseract_output="${tesseract_output//s/5}"
+    tesseract_output="${tesseract_output//$/5}"
+    tesseract_output="${tesseract_output//€/6}"
+    tesseract_output="${tesseract_output//§/6}"
+    if check_output "$tesseract_output"; then
+        echo "Tesseract output for ${label}:"
+        echo "$tesseract_output"
+        local temp=$(echo "$tesseract_output" | grep -o '[0-9]\+°C' | sed -n '1p')
+        eval ${temp_var_name}=${temp//[^0-9]/}
+        return 0
+    fi
     return 1
 }
 
@@ -74,11 +63,11 @@ roof_temp_number=0
 boiler_temp_number=0
 
 # Process roof temperature
-process_temperature "roof" "-crop -478-540 -crop +910+550" "/tmp/roof_value.jpg" "roof_temp_number"
+process_temperature "roof" "-crop 240x120+890+600" "/tmp/roof_value.jpg" "roof_temp_number"
 roof_temp=$roof_temp_number
 
 # Process boiler temperature
-process_temperature "boiler" "-crop -478-420 -crop +910+650" "/tmp/boiler_value.jpg" "boiler_temp_number"
+process_temperature "boiler" "-crop 240x120+890+710" "/tmp/boiler_value.jpg" "boiler_temp_number"
 boiler_temp=$boiler_temp_number
 
 # Check previous temperatures if file exists
@@ -161,10 +150,10 @@ cat <<EOF > /tmp/bojler.html
 </html>
 EOF
 
-scp /tmp/bojler.html ${WEB_SERVER}:${WEB_DIR}/
-scp /tmp/boiler_screen.jpg ${WEB_SERVER}:${WEB_DIR}/
-scp /tmp/roof_value.jpg ${WEB_SERVER}:${WEB_DIR}/
-scp /tmp/boiler_value.jpg ${WEB_SERVER}:${WEB_DIR}/
+#scp /tmp/bojler.html ${WEB_SERVER}:${WEB_DIR}/
+#scp /tmp/boiler_screen.jpg ${WEB_SERVER}:${WEB_DIR}/
+#scp /tmp/roof_value.jpg ${WEB_SERVER}:${WEB_DIR}/
+#scp /tmp/boiler_value.jpg ${WEB_SERVER}:${WEB_DIR}/
 
 if [ "$roof_temp_number" -eq 0 ] || [ "$boiler_temp_number" -eq 0 ]; then
     echo "No suitable contrast-stretch values found to recognize two temperatures."
