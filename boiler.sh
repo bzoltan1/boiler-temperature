@@ -156,10 +156,6 @@ EOF
 #scp /tmp/roof_value.jpg ${WEB_SERVER}:${WEB_DIR}/
 #scp /tmp/boiler_value.jpg ${WEB_SERVER}:${WEB_DIR}/
 
-if [ "$roof_temp_number" -eq 0 ] || [ "$boiler_temp_number" -eq 0 ]; then
-    echo "No suitable contrast-stretch values found to recognize two temperatures."
-    exit 1
-fi
 
 temp_data="temperatures roof=${roof_temp_number},boiler=${boiler_temp_number}"
 echo $temp_data
