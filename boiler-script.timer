@@ -1,0 +1,12 @@
+[Unit]
+Description=Run the boiler temperature monitor every minute
+
+[Timer]
+OnCalendar=06..21:0/1
+OnCalendar=22:0/20
+OnCalendar=00..05:0/20
+Persistent=true
+AccuracySec=10s
+
+[Install]
+WantedBy=timers.target

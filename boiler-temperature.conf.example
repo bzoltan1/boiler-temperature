@@ -1,0 +1,56 @@
+[camera]
+host = 192.168.1.8
+user = balogh
+device = /dev/video0
+width = 640
+height = 480
+contrast = 70%
+brightness = 25%
+delay = 2
+frames = 10
+skip = 30
+timeout = 60
+
+[ocr]
+model = qwen2.5vl:7b
+url = http://127.0.0.1:11434
+crop = 185x105+310+250
+timeout = 180
+keep_alive = 10m
+
+[validation]
+roof_min = -30
+roof_max = 100
+boiler_min = 0
+boiler_max = 120
+max_delta = 5
+confirm_delta = 1
+history = 8
+pending_ttl = 1800
+
+[influx]
+enabled = 1
+url = http://localhost:8086/write?db=boiler
+measurement = temperatures
+timeout = 10
+
+[mqtt]
+enabled = 1
+host = 192.168.1.123
+topic = home/boiler
+retain = 1
+timeout = 10
+
+[web]
+enabled = 1
+host = juhfark.hu
+user = balogh
+dir = /var/www/html/share
+html = bojler.html
+image = boiler_screen.jpg
+interval = 300
+timeout = 25
+
+[paths]
+state_dir = /home/balogh/.local/state/boiler-temperature
+log_file =

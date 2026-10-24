@@ -1,0 +1,21 @@
+[Unit]
+Description=Run the boiler temperature monitor
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=balogh
+Group=users
+WorkingDirectory=/home/balogh
+Environment="PATH=/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+Environment="HOME=/home/balogh"
+Environment="PYTHONUNBUFFERED=1"
+ExecStart=/usr/bin/python3 /home/balogh/boiler_temperature.py --config /etc/boiler-temperature.conf
+TimeoutStartSec=240
+Nice=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
